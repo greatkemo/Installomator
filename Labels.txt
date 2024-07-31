@@ -8,7 +8,7 @@ abstract
 acroniscyberprotectconnect
 acroniscyberprotectconnectagent
 adobeacrobatprodc
-adobebrackets
+adobeacrobatprodcupdate
 adobeconnect
 adobecreativeclouddesktop
 adobereaderdc
@@ -27,7 +27,7 @@ amazoncorretto11jdk
 amazoncorretto17jdk
 amazoncorretto8jdk
 amazonworkspaces
-androidfiletransfer
+anaconda
 androidstudio
 anydesk
 apparency
@@ -116,6 +116,7 @@ connectfonts
 cormorant
 craftmanager
 craftmanagerforsketch
+crashplan
 cricutdesignspace
 cryptomator
 cyberduck
@@ -411,7 +412,7 @@ proxyman
 prune
 pycharmce
 pymol
-qgis-pr
+python
 r
 rancherdesktop
 rectangle

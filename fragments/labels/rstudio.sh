@@ -1,7 +1,10 @@
 rstudio)
     name="RStudio"
     type="dmg"
-    downloadURL=$(curl -s -L "https://posit.co/download/rstudio-desktop/" | grep -m 1 -Eio 'href="https://download1.rstudio.org/electron/macos/RStudio-(.*).dmg"' | cut -c7- | sed -e 's/"$//')
-    appNewVersion=$( echo "${downloadURL}" | sed -E 's/.*\/[a-zA-Z]*-([0-9.-]*)\..*/\1/g' | sed 's/-/+/' )
+    archiveName=$( curl -sfL https://posit.co/download/rstudio-desktop/ | grep -ioE 'rstudio-[^"]+\.dmg' | head -n 1 )
+    downloadURL="https://download1.rstudio.org/electron/macos/$archiveName"
+    appNewVersion=$( sed -E 's/^RStudio-([0-9]+\.[0-9]+\.[0-9]+)-[0-9]+\.dmg$/\1/I' <<< "$archiveName" )
+    versionKey=$( defaults read /Applications/RStudio.app/Contents/Info.plist CFBundleShortVersionString | sed -E 's/\+[0-9]+//' )
+    blockingProcesses=( "RStudio" , "RStudio Helper" )
     expectedTeamID="FYF2F5GFX4"
     ;;

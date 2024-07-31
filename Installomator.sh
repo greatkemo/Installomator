@@ -323,7 +323,7 @@ if [[ $(/usr/bin/arch) == "arm64" ]]; then
     fi
 fi
 VERSION="10.4beta"
-VERSIONDATE="2023-02-24"
+VERSIONDATE="2024-07-31"
 
 # MARK: Functions
 
@@ -1582,7 +1582,19 @@ adobeacrobatprodc)
     blockingProcesses=( "Acrobat Pro DC" )
     Company="Adobe"
     ;;
-adobebrackets)
+adobeacrobatprodcupdate)
+    name="Adobe Acrobat Pro DC Update"
+    type="pkgInDmg"
+    releaseContext=$( curl -sfL https://www.adobe.com/devnet-docs/acrobatetk/tools/ReleaseNotesDC/index.html | awk -F 'class="reference internal" href="' '{for (i=2; i<=NF; i++) print $i}' | awk -F '">' '{print $1}' | grep "continuous/dccontinuous" | head -1 )
+    releaseURL="https://www.adobe.com/devnet-docs/acrobatetk/tools/ReleaseNotesDC/${releaseContext}"
+    downloadURL=$( curl -sfL "$releaseURL" | awk -F 'href="' '/https:\/\/[^"]*\/pub\/adobe\/acrobat\/mac\/AcrobatDC\/[0-9]+\/AcrobatDCUpd[0-9]+\.dmg/ {print $2}' | awk -F '"' '{print $1}' )
+    archiveName=$(basename "$downloadURL")
+    pkgName="$( sed 's/\.dmg$//' <<< $archiveName )/$( sed 's/\.dmg$/\.pkg/' <<< $archiveName )"
+    appNewVersion=$( sed -E 's/AcrobatDCUpd([0-9]{2})([0-9]{3})([0-9]{5})\.dmg/\1.\2.\3/' <<< "$archiveName" )
+    expectedTeamID="JQ525L2MZD"
+    versionKey="CFBundleShortVersionString"
+    blockingProcesses=( "Acrobat" , "Distiller" )
+    ;;adobebrackets)
     name="Brackets"
     type="dmg"
     downloadURL=$(downloadURLFromGit adobe brackets )
@@ -1831,7 +1843,28 @@ amazonworkspaces)
     appNewVersion=$(curl -fs https://d2td7dqidlhjx7.cloudfront.net/prod/iad/osx/WorkSpacesAppCast_macOS_20171023.xml | grep -o "Version*.*<" | head -1 | cut -d " " -f2 | cut -d "<" -f1)
     expectedTeamID="94KV3E626L"
     ;;
-androidfiletransfer)
+anaconda)
+    name="Anaconda-Navigator"
+    packageID="com.anaconda.io"
+    type="pkg"
+    if [[ "$(arch)" == "arm64" ]]; then
+        archiveName=$( curl -sf https://repo.anaconda.com/archive/ | awk '/href=".*Anaconda.*MacOSX.*arm64.*\.pkg"/{gsub(/.*href="|".*/, ""); gsub(/.*\//, ""); print; exit}' )
+    else
+        archiveName=$( curl -sf https://repo.anaconda.com/archive/ | awk '/href=".*Anaconda.*MacOSX.*x86_64.*\.pkg"/{gsub(/.*href="|".*/, ""); gsub(/.*\//, ""); print; exit}' )
+    fi
+    downloadURL="https://repo.anaconda.com/archive/$archiveName"
+    appNewVersion=$( awk -F'-' '{print $2}' <<< "$archiveName" )
+    expectedTeamID="Z5788K4JT7"
+    blockingProcesses=( "Anaconda-Navigator.app" )
+    appCustomVersion() {
+        if [ -e "/Users/$currentUser/opt/anaconda3/bin/conda" ]; then
+            "/Users/$currentUser/opt/anaconda3/bin/conda" list -f ^anaconda$ | awk '/anaconda /{print $2}'
+        fi
+    } 
+    updateTool="/Users/$currentUser/opt/anaconda3/bin/conda"
+    updateToolArguments=( install -y anaconda=$appNewVersion )
+    updateToolRunAsCurrentUser=1
+    ;;androidfiletransfer)
     name="Android File Transfer"
     type="dmg"
     downloadURL="https://dl.google.com/dl/androidjumper/mtp/current/AndroidFileTransfer.dmg"
@@ -2158,14 +2191,18 @@ bitwarden)
     expectedTeamID="LTZ2PFU5D6"
     ;;
 blender)
-    name="blender"
+    name="Blender"
     type="dmg"
+    versionKey="CFBundleShortVersionString"
+    appNewVersion=$(curl -sf https://ftp.nluug.nl/pub/graphics/blender/release/ | grep -o 'Blender[0-9]\+\.[0-9]\+' | cut -d 'r' -f 2 | sort -V | tail -1)
     if [[ $(arch) == "arm64" ]]; then
-        downloadURL=$(curl -sfL "https://www.blender.org/download/" | xmllint --html --format - 2>/dev/null | grep -o "https://.*blender.*arm64.*.dmg" | sed '2p;d' | sed 's/www.blender.org\/download/download.blender.org/g')
+        archiveName=$(curl -sf "https://ftp.nluug.nl/pub/graphics/blender/release/Blender$appNewVersion/"| grep -o 'blender-[0-9]\+\.[0-9]\+\.[0-9]\+-macos-arm64\.dmg' | sort -V | tail -1)
+        downloadURL="https://ftp.nluug.nl/pub/graphics/blender/release/Blender$appNewVersion/$archiveName"
     elif [[ $(arch) == "i386" ]]; then
-        downloadURL=$(curl -sfL "https://www.blender.org/download/" | xmllint --html --format - 2>/dev/null | grep -o "https://.*blender.*x64.*.dmg" | sed '2p;d' | sed 's/www.blender.org\/download/download.blender.org/g')
+        archiveName=$(curl -sf "https://ftp.nluug.nl/pub/graphics/blender/release/Blender$appNewVersion/" | grep -o 'blender-[0-9]\+\.[0-9]\+\.[0-9]\+-macos-x64\.dmg' | sort -V | tail -1)
+        downloadURL="https://ftp.nluug.nl/pub/graphics/blender/release/Blender$appNewVersion/$archiveName"
     fi
-    appNewVersion=$( echo "${downloadURL}" | sed -E 's/.*\/[a-zA-Z]*-([0-9.]*)-.*/\1/g' )
+    blockingProcesses=( "Blender" )
     expectedTeamID="68UA947AUU"
     ;;
 bluejeans)
@@ -2549,6 +2586,18 @@ craftmanagerforsketch)
     appNewVersion=$(curl -fs https://craft-assets.invisionapp.com/CraftManager/production/appcast.xml | xpath '//rss/channel/item[1]/enclosure/@sparkle:shortVersionString' 2>/dev/null | cut -d '"' -f2)
     expectedTeamID="VRXQSNCL5W"
     ;;
+crashplan)
+    name="CrashPlan"
+    appName="CrashPlan.app"
+    type="pkgInDmg"
+    downloadURL="https://download.crashplan.com/installs/agent/latest-mac.dmg"
+    appNewVersion=$( curl -sfI https://download.crashplan.com/installs/agent/latest-mac.dmg | awk -F'/' '/Location: /{print $7}' )
+    archiveName=$( curl -sfI https://download.crashplan.com/installs/agent/latest-mac.dmg | awk -F'/' '/Location: /{print $NF}' )
+    expectedTeamID="UGHXR79U6M"
+    pkgName="Install CrashPlan.pkg"
+    packageID="com.crashplan.app.pkg"
+    blockingProcesses=( $name )
+    ;;
 cricutdesignspace)
     name="Cricut Design Space"
     type="dmg"
@@ -2904,11 +2953,17 @@ figma)
     name="Figma"
     type="zip"
     if [[ $(arch) == "arm64" ]]; then
-        downloadURL="https://desktop.figma.com/mac-arm/Figma.zip"
+        downloadURL="$( curl -fsL https://desktop.figma.com/mac-arm/RELEASE.json | sed -E 's/.*(https.*\.zip).*/\1/g' )"
+        archiveName="$( basename -a "$downloadURL" )"
+        appNewVersion="$( sed -E 's/^Figma-([0-9]+\.[0-9]+\.[0-9]+)\.zip$/\1/' <<< "$archiveName" )"
+        
     elif [[ $(arch) == "i386" ]]; then
-        downloadURL="https://desktop.figma.com/mac/Figma.zip"
+        downloadURL="$( curl -fsL https://desktop.figma.com/mac/RELEASE.json | sed -E 's/.*(https.*\.zip).*/\1/g' )"
+        archiveName="$( basename -a "$downloadURL" )"
+        appNewVersion="$( sed -E 's/^Figma-([0-9]+\.[0-9]+\.[0-9]+)\.zip$/\1/' <<< "$archiveName" )"
     fi
-    appNewVersion="$(curl -fsL https://desktop.figma.com/mac/RELEASE.json | awk -F '"' '{ print $8 }')"
+    versionKey="CFBundleShortVersionString"
+    blockingProcesses=( "Figma" , "Figma Helper" , "FigmaAgent" )
     expectedTeamID="T8RA8NE3B7"
     ;;
 filemakerpro)
@@ -3150,12 +3205,16 @@ gimp)
 githubdesktop)
     name="GitHub Desktop"
     type="zip"
+    appNewVersion=$( curl -fs https://central.github.com/deployments/desktop/desktop/changelog.json | awk -F '{' '/"version"/ { print $2 }' | sed -E 's/.*,\"version\":\"([0-9.]*)\".*/\1/g' )
     if [[ $(arch) == "arm64" ]]; then
-        downloadURL="https://central.github.com/deployments/desktop/desktop/latest/darwin-arm64"
+        downloadURL="$( curl -fsIL https://central.github.com/deployments/desktop/desktop/latest/darwin-arm64 | grep -i "^location" | sed -E 's/.*(https.*\.zip).*/\1/g' )"
+        archiveName="$( basename -a "$downloadURL" )"
     elif [[ $(arch) == "i386" ]]; then
-        downloadURL="https://central.github.com/deployments/desktop/desktop/latest/darwin"
+        downloadURL="$( curl -fsIL https://central.github.com/deployments/desktop/desktop/latest/darwin | grep -i "^location" | sed -E 's/.*(https.*\.zip).*/\1/g' )"
+        archiveName="$( basename -a "$downloadURL" )"
     fi
-    appNewVersion=$(curl -fsL https://central.github.com/deployments/desktop/desktop/changelog.json | awk -F '{' '/"version"/ { print $2 }' | sed -E 's/.*,\"version\":\"([0-9.]*)\".*/\1/g')
+    versionKey="CFBundleShortVersionString"
+    blockingProcesses=( "GitHub Desktop" , "GitHub Desktop Helper" )
     expectedTeamID="VEKTX9H2N7"
     ;;
 gitkraken)
@@ -4856,10 +4915,11 @@ nudgesuite)
     name="Nudge Suite"
     appName="Nudge.app"
     type="pkg"
-    appNewVersion=$(versionFromGit macadmins Nudge )
+    appNewVersion=$( curl -sLI https://github.com/macadmins/Nudge/releases/latest | grep -i "^location" | tr "/" "\n" | tail -1 | sed 's/[^0-9\.]//g' )
     archiveName="Nudge_Suite-$appNewVersion.pkg"
-    downloadURL=$(downloadURLFromGit macadmins Nudge )
+    downloadURL="https://github.com/macadmins/nudge/releases/download/v$appNewVersion/$archiveName"
     expectedTeamID="T4SK8ZXCXG"
+    versionKey="CFBundleShortVersionString"
     blockingProcesses=( "Nudge" )
     ;;
 nvivo)
@@ -4874,12 +4934,15 @@ obs)
     name="OBS"
     type="dmg"
     if [[ $(arch) == "arm64" ]]; then
-        archiveName="obs-studio-[0-9.]*-macos-arm64.dmg"
+        SUFeedURL="https://obsproject.com/osx_update/updates_arm64_v2.xml"
     elif [[ $(arch) == "i386" ]]; then
-        archiveName="obs-studio-[0-9.]*-macos-x86_64.dmg"
+        SUFeedURL="https://obsproject.com/osx_update/updates_x86_64_v2.xml"
     fi
-    downloadURL=$(downloadURLFromGit obsproject obs-studio )
-    appNewVersion=$(versionFromGit obsproject obs-studio )
+    appNewVersion=$(curl -fs "$SUFeedURL" | xpath '(//rss/channel/item[sparkle:channel="stable"]/sparkle:shortVersionString/text())[1]' 2>/dev/null)
+    downloadURL=$(curl -fs "$SUFeedURL" | xpath 'string(//rss/channel/item[sparkle:channel="stable"]/enclosure/@url[1])' 2>/dev/null)
+    archiveName=$(basename "$downloadURL")   
+    versionKey="CFBundleShortVersionString"
+    blockingProcesses=( "OBS Studio" )
     expectedTeamID="2MMRE5MTB8"
     ;;
 obsidian)
@@ -5265,7 +5328,23 @@ pymol)
     downloadURL=$(curl -s -L "https://pymol.org/" | grep -m 1 -Eio 'href="https://pymol.org/installers/PyMOL-(.*)-MacOS(.*).dmg"' | cut -c7- | sed -e 's/"$//')
     expectedTeamID="26SDDJ756N"
     ;;
-qgis-pr)
+python)
+    name="Python"
+    type="pkg"
+    appNewVersion="$( curl -s "https://www.python.org/downloads/macos/" | awk '/Latest Python 3 Release - Python/{gsub(/<\/?[^>]+(>|$)/, ""); print $NF}' )"
+    archiveName=$( curl -s "https://www.python.org/ftp/python/$appNewVersion/" | awk '/href=".*python.*macos.*\.pkg"/{gsub(/.*href="|".*/, ""); gsub(/.*\//, ""); print}' )
+    downloadURL="https://www.python.org/ftp/python/$appNewVersion/$archiveName"
+    shortVersion=$( cut -d '.' -f1,2 <<< $appNewVersion )
+    packageID="org.python.Python.PythonFramework-$shortVersion"
+    expectedTeamID="DJ3H93M7VJ"
+    blockingProcesses=( "IDLE" "Python Launcher" )
+    versionKey="CFBundleVersion"
+    appCustomVersion() {
+        if [ -d "/Library/Frameworks/Python.framework/Versions/$shortVersion/Resources/Python.app/" ]; then 
+            /usr/bin/defaults read "/Library/Frameworks/Python.framework/Versions/$shortVersion/Resources/Python.app/Contents/Info" CFBundleVersion
+        fi
+    } 
+    ;;qgis-pr)
     name="QGIS"
     type="dmg"
     downloadURL="https://download.qgis.org/downloads/macos/qgis-macos-pr.dmg"
@@ -5443,8 +5522,11 @@ royaltsx)
 rstudio)
     name="RStudio"
     type="dmg"
-    downloadURL=$(curl -s -L "https://posit.co/download/rstudio-desktop/" | grep -m 1 -Eio 'href="https://download1.rstudio.org/electron/macos/RStudio-(.*).dmg"' | cut -c7- | sed -e 's/"$//')
-    appNewVersion=$( echo "${downloadURL}" | sed -E 's/.*\/[a-zA-Z]*-([0-9.-]*)\..*/\1/g' | sed 's/-/+/' )
+    archiveName=$( curl -sfL https://posit.co/download/rstudio-desktop/ | grep -ioE 'rstudio-[^"]+\.dmg' | head -n 1 )
+    downloadURL="https://download1.rstudio.org/electron/macos/$archiveName"
+    appNewVersion=$( sed -E 's/^RStudio-([0-9]+\.[0-9]+\.[0-9]+)-[0-9]+\.dmg$/\1/I' <<< "$archiveName" )
+    versionKey=$( defaults read /Applications/RStudio.app/Contents/Info.plist CFBundleShortVersionString | sed -E 's/\+[0-9]+//' )
+    blockingProcesses=( "RStudio" , "RStudio Helper" )
     expectedTeamID="FYF2F5GFX4"
     ;;
 santa)
@@ -5595,11 +5677,12 @@ sketchupviewer)
 skype)
     name="Skype"
     type="dmg"
-    downloadURL="https://get.skype.com/go/getskype-skypeformac"
-    appNewVersion=$(curl -is "https://get.skype.com/go/getskype-skypeformac" | grep ocation: | grep -o "Skype-.*dmg" | cut -d "-" -f 2 | sed 's/.dmg//')
+    downloadURL=$(curl -sfi https://get.skype.com/go/getskype-skypeformac | awk 'BEGIN{IGNORECASE=1} /location:/ {gsub(/\r/,"",$2); print $2}')
+    archiveName=$(basename "$downloadURL")
+    appNewVersion=$(awk -F'[-.]' '{print $2"."$3"."$4"."$5}' <<< "$archiveName")
     versionKey="CFBundleVersion"
     expectedTeamID="AL798K98FX"
-    Company="Microsoft"
+    blockingProcesses=( "Skype" , "Skype Helper" )
     ;;
 slab)
     name="Slab"
@@ -6249,14 +6332,11 @@ vivaldi)
 vlc)
     name="VLC"
     type="dmg"
-    if [[ $(arch) == "arm64" ]]; then
-        downloadURL=$(curl -fs http://update.videolan.org/vlc/sparkle/vlc-arm64.xml | xpath '//rss/channel/item[last()]/enclosure/@url' 2>/dev/null | cut -d '"' -f 2 )
-        #appNewVersion=$(curl -fs http://update.videolan.org/vlc/sparkle/vlc-arm64.xml | xpath '//rss/channel/item[last()]/enclosure/@sparkle:version' 2>/dev/null | cut -d '"' -f 2 )
-    elif [[ $(arch) == "i386" ]]; then
-        downloadURL=$(curl -fs http://update.videolan.org/vlc/sparkle/vlc-intel64.xml | xpath '//rss/channel/item[last()]/enclosure/@url' 2>/dev/null | cut -d '"' -f 2 )
-        #appNewVersion=$(curl -fs http://update.videolan.org/vlc/sparkle/vlc-intel64.xml | xpath '//rss/channel/item[last()]/enclosure/@sparkle:version' 2>/dev/null | cut -d '"' -f 2 )
-    fi
-    appNewVersion=$(echo ${downloadURL} | sed -E 's/.*\/vlc-([0-9.]*).*\.dmg/\1/' )
+    archiveName=$( curl -sf https://get.videolan.org/vlc/last/macosx/ | grep -o 'href="vlc-.*-universal\.dmg"' | awk -F '"' '{print $2}' )
+    downloadURL="https://get.videolan.org/vlc/last/macosx/${archiveName}"
+    appNewVersion=$(awk -F'[-.]' '{print $2"."$3"."$4}' <<< "$archiveName")
+    versionKey="CFBundleShortVersionString"
+    blockingProcesses=( "VLC" )
     expectedTeamID="75GAHG3SZQ"
     ;;
 vmwarehorizonclient)
